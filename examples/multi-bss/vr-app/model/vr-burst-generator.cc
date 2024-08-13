@@ -61,7 +61,7 @@ VrBurstGenerator::GetTypeId(void)
                           "The VR application on which the model is based upon. Check the "
                           "documentation for further information.",
                           EnumValue(VrAppName::VirusPopper),
-                          MakeEnumAccessor<VrAppName>(&VrBurstGenerator::m_appName),
+                          MakeEnumAccessor(&VrBurstGenerator::m_appName),
                           MakeEnumChecker(VrAppName::VirusPopper,
                                           "VirusPopper",
                                           VrAppName::Minecraft,

@@ -22,6 +22,7 @@ import subprocess
 import psutil
 import time
 import signal
+import logging
 
 
 SIMULATION_EARLY_ENDING = 0.5   # wait and see if the subprocess is running after creation
@@ -34,27 +35,42 @@ def get_setting(setting_map):
     return ret
 
 
-def run_single_ns3(path, pname, setting=None, env=None, show_output=False):
+def run_single_ns3(path, pname, setting=None, env=None, show_output=False, log_file = None):
+
+    logger = logging.getLogger("")
+    logger.info(f"show output {str(show_output)} log file is None {str(log_file is None)}")
+    logger.info(f"ns3 settings {setting}")
     if env is None:
         env = {}
     env.update(os.environ)
     env['LD_LIBRARY_PATH'] = os.path.abspath(os.path.join(path, 'build', 'lib'))
     # import pdb; pdb.set_trace()
     exec_path = os.path.join(path, 'ns3')
+    cmd = ""
     if not setting:
         cmd = '{} run {}'.format(exec_path, pname)
     else:
         cmd = '{} run {} --{}'.format(exec_path, pname, get_setting(setting))
+    # logger.info(f"CMD to run ns3: {cmd}")
     if show_output:
         proc = subprocess.Popen(cmd, shell=True, text=True, env=env,
                                 stdin=subprocess.PIPE,
                                 preexec_fn=os.setpgrp)
-    else:
+    elif log_file is None:
         proc = subprocess.Popen(cmd, shell=True, text=True, env=env,
                                 stdin=subprocess.PIPE,
                                 stdout=subprocess.PIPE,
                                 stderr=subprocess.PIPE,
                                 preexec_fn=os.setpgrp)
+    else:
+        proc = subprocess.Popen(cmd, 
+                                # shell=True, 
+                                text=True, env=env,
+                                # stdin=subprocess.PIPE,
+                                stdout=log_file,
+                                stderr=subprocess.STDOUT,
+                                # preexec_fn=os.setpgrp
+                                )
 
     return cmd, proc
 
@@ -106,11 +122,13 @@ class Experiment:
                  segName="My Seg",
                  cpp2pyMsgName="My Cpp to Python Msg",
                  py2cppMsgName="My Python to Cpp Msg",
-                 lockableName="My Lockable"):
+                 lockableName="My Lockable" 
+                 ): 
         if self._created:
             raise Exception('ns3ai_utils: Error: Experiment is singleton')
         self._created = True
         self.targetName = targetName  # ns-3 target name, not file name
+        self.ns3Path = ns3Path
         os.chdir(ns3Path)
         self.msgModule = msgModule
         self.handleFinish = handleFinish
@@ -134,25 +152,29 @@ class Experiment:
 
         self.proc = None
         self.simCmd = None
-        print('ns3ai_utils: Experiment initialized')
+        logger = logging.getLogger("")
+        logger.info('ns3ai_utils: Experiment initialized')
 
     def __del__(self):
+        logger = logging.getLogger("")
         self.kill()
         del self.msgInterface
-        print('ns3ai_utils: Experiment destroyed')
+        logger.info('ns3ai_utils: Experiment destroyed')
 
     # run ns3 script in cmd with the setting being input
     # \param[in] setting : ns3 script input parameters(default : None)
     # \param[in] show_output : whether to show output or not(default : False)
-    def run(self, setting=None, show_output=False):
+    def run(self, setting=None, show_output=False, log_file = None):
+        logger = logging.getLogger("")
         self.kill()
         self.simCmd, self.proc = run_single_ns3(
-            './', self.targetName, setting=setting, show_output=show_output)
-        print("ns3ai_utils: Running ns-3 with: ", self.simCmd)
+            './', self.targetName, setting=setting, show_output=show_output, log_file = log_file)
+        logger.info(f"ns3ai_utils: Running ns-3 with: {self.simCmd}")
         # exit if an early error occurred, such as wrong target name
         time.sleep(SIMULATION_EARLY_ENDING)
         if not self.isalive():
-            print('ns3ai_utils: Subprocess died very early')
+            logger.info('ns3ai_utils: Subprocess died very early')
+            print(f"ns3ai_utils: Subprocess died very early: {os.path.join(self.ns3Path, self.targetName)}")
             exit(1)
         signal.signal(signal.SIGINT, sigint_handler)
         return self.msgInterface

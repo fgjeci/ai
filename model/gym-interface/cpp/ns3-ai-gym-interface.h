@@ -22,7 +22,7 @@
 #ifndef NS3_NS3_AI_GYM_INTERFACE_H
 #define NS3_NS3_AI_GYM_INTERFACE_H
 
-#include "../ns3-ai-gym-msg.h"
+#include "ns3/ns3-ai-gym-msg.h"
 
 #include <ns3/ai-module.h>
 #include <ns3/callback.h>
