@@ -17,14 +17,14 @@
 #         Hao Yin <haoyin@uw.edu>
 #         Muyuan Shen <muyuan_shen@hust.edu.cn>
 
-
-import ns3ai_ore_py_stru as py_binding
-from ns3ai_utils import Experiment
+import os
 import sys
+import ns3ai_ore_py_stru as py_binding
+# sys.path.append( os.path.join(os.getcwd(), '../../python_utils/'))
+from ns3ai_utils import Experiment
 import traceback
 import csv
 import math
-import os
 import logging
 from datetime import datetime
 import argparse

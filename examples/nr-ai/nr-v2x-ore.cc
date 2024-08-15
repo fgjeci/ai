@@ -440,9 +440,9 @@ main (int argc, char *argv[])
   
   cmd.AddValue ("reType", "DRE or ORE simulation type", reType);
 
-  nrUeMacTypeName = "ns3::" +nrUeMacTypeName;
+  std::string nrUeMacTypeNameComplete = "ns3::" +nrUeMacTypeName;
 
-  // std::cout << "ue mac type " << nrUeMacTypeName << std::endl;
+  std::cout << "ue mac type " << nrUeMacTypeNameComplete << std::endl;
 
   // exit(1);
 
@@ -529,17 +529,17 @@ main (int argc, char *argv[])
       // LogComponentEnable ("UdpServer", logLevel);
       LogComponentEnable ("NrHelper", logLevel);
       LogComponentEnable ("NrSlHelper", logLevel);
-      LogComponentEnable ("OREENV", logLevel);
+      // LogComponentEnable ("OREENV", logLevel);
 
-      LogComponentEnable ("AiNrSlUeMacSchedulerSimple", logLevel);
-      LogComponentEnable ("NrSlUeMacSchedulerSimple", logLevel);
+      // LogComponentEnable ("AiNrSlUeMacSchedulerSimple", logLevel);
+      // LogComponentEnable ("NrSlUeMacSchedulerSimple", logLevel);
       
       // LogComponentEnable ("NrGnbMac", logLevel);
       // LogComponentEnable ("NrGnbPhy", logLevel);
       // LogComponentEnable ("BandwidthPartGnb", logLevel);
       
-      LogComponentEnable ("AiNrUeMac", logLevel);
-      LogComponentEnable ("NrUeMac", logLevel);
+      // LogComponentEnable ("AiNrUeMac", logLevel);
+      // LogComponentEnable ("NrUeMac", logLevel);
       // LogComponentEnable ("NrUePhy", logLevel);
       // LogComponentEnable ("NrPhy", logLevel);
       // LogComponentEnable ("NrSpectrumPhy", logLevel);
@@ -609,7 +609,7 @@ main (int argc, char *argv[])
 
   // Put the pointers inside nrHelper
   nrHelper->SetEpcHelper (epcHelper);
-  if(nrUeMacTypeName == NrUeMac::GetTypeId().GetName()){
+  if(nrUeMacTypeNameComplete.compare(NrUeMac::GetTypeId().GetName()) == 0){
     nrHelper->SetUeMacTypeId (NrUeMac::GetTypeId());
   }else{
     nrHelper->SetUeMacTypeId(AiNrUeMac::GetTypeId());
@@ -656,8 +656,9 @@ main (int argc, char *argv[])
   nrHelper->SetUeMacAttribute ("NumSidelinkProcess", UintegerValue (4));
   nrHelper->SetUeMacAttribute ("EnableBlindReTx", BooleanValue (true));
 
-  nrHelper->SetUeMacAttribute ("PlmnId", StringValue(ltePlmnId));
-  nrHelper->SetUeMacAttribute ("REType", StringValue(reType));
+
+  // nrHelper->SetUeMacAttribute ("PlmnId", StringValue(ltePlmnId));
+  // nrHelper->SetUeMacAttribute ("REType", StringValue(reType));
 
 
   uint8_t bwpIdForGbrMcptt = 0;
@@ -723,8 +724,10 @@ main (int argc, char *argv[])
 
   // create building
   if (isUrbanScenario){
+  // if (false){
     std::vector<std::vector<double>> buildingsPositionVector = readCSV(buildingsFile);
-    for (int i = 0; i<(int) buildingsPositionVector.size(); ++i){
+    // for (int i = 0; i<(int) buildingsPositionVector.size(); ++i){
+    for (int i = 0; i<(int) 1; ++i){
     // for (int i = 0; i< 1; ++i){
       std::vector<double> buildPosVec = buildingsPositionVector[i];
       Ptr<Building> b = CreateObject<Building>();
@@ -768,9 +771,7 @@ main (int argc, char *argv[])
 
   // nrSlHelper->SetNrSlSchedulerTypeId (NrSlUeMacSchedulerSimple::GetTypeId());
   
-// std::cout<<  "nrUeMacTypeName " << nrUeMacTypeName << " ue mac naem " << NrUeMac::GetTypeId().GetName() <<  std::endl;
-
-  if(nrUeMacTypeName == NrUeMac::GetTypeId().GetName()){
+  if(nrUeMacTypeNameComplete.compare(NrUeMac::GetTypeId().GetName())){
     nrSlHelper->SetNrSlSchedulerTypeId (NrSlUeMacSchedulerSimple::GetTypeId());
   }else{
     nrSlHelper->SetNrSlSchedulerTypeId(AiNrSlUeMacSchedulerSimple::GetTypeId());
@@ -1053,8 +1054,8 @@ main (int argc, char *argv[])
   std::string exampleName = simTag + "/" + "nr-v2x-simple-demo.db";
   SQLiteOutput db (outputDir + exampleName);
 
-  // uint32_t writeCacheSize = 1000 * ueNum;
-  uint32_t writeCacheSize = 10;
+  uint32_t writeCacheSize = 2500 * ueNum; 
+  // uint32_t writeCacheSize = 10;
 
   // modified
   UeV2XScheduling v2xSchedulingxApp;
