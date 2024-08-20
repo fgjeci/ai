@@ -108,6 +108,8 @@ $ ./ns3 run "cttc-nr-v2x-demo-simple --help"
 #include "use-msg/ai-nr-sl-ue-mac-scheduler-simple.h"
 #include "use-msg/ai-nr-ue-mac.h"
 
+#include "ns3/sl-spectrum-stats.h"
+
 /*
  * Use, always, the namespace ns3. All the NR classes are inside such namespace.
  */
@@ -307,7 +309,7 @@ main (int argc, char *argv[])
 
   // NR parameters. We will take the input from the command line, and then we
   // will pass them inside the NR module. 
-  uint16_t numerologyBwpSl = 0;
+  uint16_t numerologyBwpSl = 2;
   double centralFrequencyBandSl = 5.89e9; // band n47  TDD //Here band is analogous to channel
   uint16_t bandwidthBandSl = 400; //Multiple of 100 KHz; 400 = 40 MHz
   double txPower = 23; //dBm
@@ -511,6 +513,9 @@ main (int argc, char *argv[])
 
   Config::SetDefault ("ns3::LteRlcUm::MaxTxBufferSize", UintegerValue(999999999));
 
+  if (schedulingTypeValue ==NrSlCommResourcePool::ORAN_SELECTED){
+    Config::SetDefault ("ns3::LteRlcUm::ReorderingTimer", TimeValue(MilliSeconds(1)));
+  }
 
   // ParametersConfig::CreateTracesDir(params);
 
@@ -543,6 +548,7 @@ main (int argc, char *argv[])
       // LogComponentEnable ("NrUePhy", logLevel);
       // LogComponentEnable ("NrPhy", logLevel);
       // LogComponentEnable ("NrSpectrumPhy", logLevel);
+      // LogComponentEnable ("NrSpectrumPhy", LOG_INFO);
       // LogComponentEnable ("NrSlUeMacHarq", logLevel);
       
       // LogComponentEnable ("E2Termination", logLevel);
@@ -726,9 +732,8 @@ main (int argc, char *argv[])
   if (isUrbanScenario){
   // if (false){
     std::vector<std::vector<double>> buildingsPositionVector = readCSV(buildingsFile);
-    // for (int i = 0; i<(int) buildingsPositionVector.size(); ++i){
-    for (int i = 0; i<(int) 1; ++i){
-    // for (int i = 0; i< 1; ++i){
+    for (int i = 0; i<(int) buildingsPositionVector.size(); ++i){
+    // for (int i = 0; i<(int) 1; ++i){
       std::vector<double> buildPosVec = buildingsPositionVector[i];
       Ptr<Building> b = CreateObject<Building>();
       b->SetBoundaries(Box(buildPosVec[0], buildPosVec[1], 
@@ -982,7 +987,7 @@ main (int argc, char *argv[])
     clientApps.Add(sidelinkClient.Install (ueVoiceContainer.Get (_ind)));
   }
   
-  clientApps.Start (finalSlBearersActivationTime);
+  clientApps.Start (Seconds(finalSlBearersActivationTime.GetSeconds()));
   clientApps.Stop (finalSimTime);
 
   //Output app start, stop and duration
@@ -1005,7 +1010,7 @@ main (int argc, char *argv[])
 
   // modified
 
-  nrHelper->EnableTraces();
+  // nrHelper->EnableTraces();
 
   Config::ConnectWithoutContext ("/NodeList/*/DeviceList/*/$ns3::NrUeNetDevice/ComponentCarrierMapUe/*/NrUePhy/SensingData",
                                    MakeBoundCallback (&NrGnbNetDevice::SciReceptionCallback, DynamicCast<NrGnbNetDevice> (enbNetDev.Get (0))));
@@ -1069,6 +1074,7 @@ main (int argc, char *argv[])
   Config::ConnectWithoutContext ("/NodeList/*/DeviceList/*/$ns3::NrUeNetDevice/ComponentCarrierMapUe/*/NrUeMac/UeSlV2XScheduling",
                                    MakeBoundCallback (&SlStatsHelper::NotifyUeScheduling, &v2xSchedulingMode2));
 
+  // writeCacheSize = 2500 * ueNum; 
   // mobility 
   // control messages
   // gnbPhy->TraceConnectWithoutContext ("SlotDataStats",
@@ -1117,6 +1123,9 @@ main (int argc, char *argv[])
 	ctrlUlDciStats.SetDb(&db, "ctrlUlDciStats", writeCacheSize);
   ctrlMsgsStats.SetDb(&db, "ctrlMsgsStats", writeCacheSize);
   mobilityStats.SetDb(&db, "mobility", writeCacheSize);
+
+  
+
 
 
 	// macBsrStats.SetDb(&db, "macBsr", 100);
@@ -1188,6 +1197,8 @@ main (int argc, char *argv[])
 											MakeBoundCallback (&SlStatsHelper::ReportPowerNr, &ueTxPowerStats));
   // end modification
 
+  // writeCacheSize = 100;
+
   UeMacPscchTxOutputStats pscchStats;
   pscchStats.SetDb (&db, "pscchTxUeMac", writeCacheSize);
   Config::ConnectWithoutContext ("/NodeList/*/DeviceList/*/$ns3::NrUeNetDevice/ComponentCarrierMapUe/*/NrUeMac/SlPscchScheduling",
@@ -1210,7 +1221,21 @@ main (int argc, char *argv[])
                                    MakeBoundCallback (&SlStatsHelper::NotifySlPsschRx, &psschPhyStats));
 
   UeToUePktTxRxOutputStats pktStats;
-  pktStats.SetDb (&db, "pktTxRx");
+  pktStats.SetDb (&db, "pktTxRx", writeCacheSize);
+
+  // SlSpectrumStats slSpectrumStats;
+  // slSpectrumStats.SetDb (&db, "slSpectrum", writeCacheSize);
+  // Config::ConnectWithoutContext ("/NodeList/*/DeviceList/*/$ns3::NrUeNetDevice/ComponentCarrierMapUe/*/NrUePhy/NrSpectrumPhyList/*/SlRxFrameCtrlTrace",
+  //                         MakeBoundCallback(&SlStatsHelper::ReportSlSpectrum, &slSpectrumStats, "RX", "CTRL"));
+
+  // Config::ConnectWithoutContext ("/NodeList/*/DeviceList/*/$ns3::NrUeNetDevice/ComponentCarrierMapUe/*/NrUePhy/NrSpectrumPhyList/*/SlRxFrameDataTrace",
+  //                         MakeBoundCallback(&SlStatsHelper::ReportSlSpectrum, &slSpectrumStats, "RX", "DATA"));
+  
+  // Config::ConnectWithoutContext ("/NodeList/*/DeviceList/*/$ns3::NrUeNetDevice/ComponentCarrierMapUe/*/NrUePhy/NrSpectrumPhyList/*/SlTxFrameCtrlTrace",
+  //                         MakeBoundCallback(&SlStatsHelper::ReportSlSpectrum, &slSpectrumStats, "TX", "CTRL"));
+
+  // Config::ConnectWithoutContext ("/NodeList/*/DeviceList/*/$ns3::NrUeNetDevice/ComponentCarrierMapUe/*/NrUePhy/NrSpectrumPhyList/*/SlTxFrameDataTrace",
+  //                         MakeBoundCallback(&SlStatsHelper::ReportSlSpectrum, &slSpectrumStats, "TX", "DATA"));
 
   if (!useIPv6)
     {
