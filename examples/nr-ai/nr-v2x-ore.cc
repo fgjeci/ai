@@ -1391,6 +1391,7 @@ main (int argc, char *argv[])
   ctrlUlDciStats.EmptyCache();
   packetTraceStats.EmptyCache();
   mobilityStats.EmptyCache();
+  slSpectrumStats.EmptyCache();
 
   Simulator::Destroy ();
   return 0;
