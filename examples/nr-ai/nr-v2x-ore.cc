@@ -569,10 +569,12 @@ main (int argc, char *argv[])
       // LogComponentEnable ("BandwidthPartGnb", logLevel);
       
       // LogComponentEnable ("AiNrUeMac", logLevel);
-      // LogComponentEnable ("NrUeMac", logLevel);
+      LogComponentEnable ("NrUeMac", logLevel);
       // LogComponentEnable ("NrUePhy", logLevel);
       // LogComponentEnable ("NrPhy", logLevel);
       // LogComponentEnable ("NrSpectrumPhy", logLevel);
+      // LogComponentEnable ("NetDevice", logLevel);
+      // LogComponentEnable ("NrSpectrumPhy", LOG_INFO);
       // LogComponentEnable ("NrSlUeMacHarq", logLevel);
       
       // LogComponentEnable ("E2Termination", logLevel);
@@ -714,8 +716,6 @@ main (int argc, char *argv[])
   //Initialize channel and pathloss, plus other things inside band.
   // nrHelper->InitializeOperationBand (&bandGnb);
 
-  // BandwidthPartInfoPtrVector allBwpsGnb = CcBwpCreator::GetAllBwps ({bandGnb});
-
   
   // position the base stations
   Ptr<ListPositionAllocator> enbPositionAlloc = CreateObject<ListPositionAllocator> ();
@@ -737,8 +737,6 @@ main (int argc, char *argv[])
     enbPositionAlloc->Add (Vector (162.36,-312.41, 35));
   }
   
-  
-  
   MobilityHelper enbmobility;
   enbmobility.SetMobilityModel ("ns3::ConstantPositionMobilityModel");
   enbmobility.SetPositionAllocator (enbPositionAlloc);
@@ -749,7 +747,6 @@ main (int argc, char *argv[])
 
   // NetDeviceContainer enbNetDev = nrHelper->InstallGnbDevice (enbNodes, allBwpsGnb);
   // use the bwp of sidelink
-  // Config::SetDefault ("ns3::NrGnbPhy::Numerology", UintegerValue (numerologyBwpSl));
   
   nrHelper->SetGnbPhyAttribute ("Numerology", UintegerValue (numerologyBwpSl));
   nrHelper->SetGnbMacAttribute ("ActivePoolId", UintegerValue (0));
@@ -801,8 +798,6 @@ main (int argc, char *argv[])
   std::string errorModel = "ns3::NrEesmIrT1";
   nrSlHelper->SetSlErrorModel (errorModel);
   nrSlHelper->SetUeSlAmcAttribute ("AmcModel", EnumValue (NrAmc::ErrorModel));
-
-  // nrSlHelper->SetNrSlSchedulerTypeId (NrSlUeMacSchedulerSimple::GetTypeId());
   
   if(nrUeMacTypeNameComplete.compare(NrUeMac::GetTypeId().GetName())){
     nrSlHelper->SetNrSlSchedulerTypeId (NrSlUeMacSchedulerSimple::GetTypeId());
@@ -1089,8 +1084,8 @@ main (int argc, char *argv[])
   std::string exampleName = simTag + "/" + "nr-v2x-simple-demo.db";
   SQLiteOutput db (outputDir + exampleName);
 
-  uint32_t writeCacheSize = 2500 * ueNum; 
-  // uint32_t writeCacheSize = 10;
+  // uint32_t writeCacheSize = 2500 * ueNum; 
+  uint32_t writeCacheSize = 10;
 
   // modified
   UeV2XScheduling v2xSchedulingxApp;
@@ -1153,10 +1148,6 @@ main (int argc, char *argv[])
 	ctrlUlDciStats.SetDb(&db, "ctrlUlDciStats", writeCacheSize);
   ctrlMsgsStats.SetDb(&db, "ctrlMsgsStats", writeCacheSize);
   mobilityStats.SetDb(&db, "mobility", writeCacheSize);
-
-  
-
-
 
 	// macBsrStats.SetDb(&db, "macBsr", 100);
 	// phySlotStats.SetDb (&db, "phySlotStats");
@@ -1227,7 +1218,7 @@ main (int argc, char *argv[])
 											MakeBoundCallback (&SlStatsHelper::ReportPowerNr, &ueTxPowerStats));
   // end modification
 
-  // writeCacheSize = 100;
+  writeCacheSize = 10;
 
   NS_LOG_DEBUG("WriteCAche " << writeCacheSize);
 
