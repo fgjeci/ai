@@ -1084,8 +1084,8 @@ main (int argc, char *argv[])
   std::string exampleName = simTag + "/" + "nr-v2x-simple-demo.db";
   SQLiteOutput db (outputDir + exampleName);
 
-  // uint32_t writeCacheSize = 2500 * ueNum; 
-  uint32_t writeCacheSize = 10;
+  uint32_t writeCacheSize = 2500 * ueNum; 
+  // uint32_t writeCacheSize = 10;
 
   // modified
   UeV2XScheduling v2xSchedulingxApp;
@@ -1218,7 +1218,7 @@ main (int argc, char *argv[])
 											MakeBoundCallback (&SlStatsHelper::ReportPowerNr, &ueTxPowerStats));
   // end modification
 
-  writeCacheSize = 10;
+  // writeCacheSize = 10;
 
   NS_LOG_DEBUG("WriteCAche " << writeCacheSize);
 
