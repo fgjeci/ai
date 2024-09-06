@@ -257,14 +257,18 @@ OREENV::getChosenSubChannel(int index, int estimatorUpdateFlag, int addRecievedP
 }
 
 void
-OREENV::passSensingData(int imsi, double time, int rsrpThreshold, int occupiedResources, double encodedSrcRnti, double encodedRc, double encodedSrcSlot, double encodedSrcSc, int sensingDataFlag)
+OREENV::passSensingData(int imsi, double time, int rsrpThreshold, int occupiedResources, 
+                        double encodedSrcRnti, double encodedRc, double encodedSrcSlot, 
+                        double encodedSrcSc, int sensingDataFlag)
 {
-  NS_LOG_FUNCTION(this);
+  NS_LOG_FUNCTION(imsi << time << rsrpThreshold << occupiedResources << encodedSrcRnti << encodedRc << encodedSrcSlot << encodedSrcSc << sensingDataFlag);
   auto interface = Ns3AiMsgInterface::Get();
+  // NS_LOG_DEBUG("Interface pointer " << interface);
   Ns3AiMsgInterfaceImpl<OREEnvStruct, OREActStruct>* msgInterface =
         interface->GetInterface<OREEnvStruct, OREActStruct>();
-
+  // NS_LOG_DEBUG("Msg Interface pointer " << msgInterface);
   msgInterface->CppSendBegin();
+  // NS_LOG_DEBUG("CppSendBegin ");
   auto OREInput = msgInterface->GetCpp2PyStruct();
   OREInput->imsi = imsi;
   OREInput->time = time;
@@ -275,10 +279,14 @@ OREENV::passSensingData(int imsi, double time, int rsrpThreshold, int occupiedRe
   OREInput->encodedSrcSlot = encodedSrcSlot;
   OREInput->encodedSrcSc = encodedSrcSc;
   OREInput->sensingDataFlag = sensingDataFlag;
-
+  // NS_LOG_DEBUG("CppSendEnd before ");
   msgInterface->CppSendEnd();
-  
-  
+  // NS_LOG_DEBUG("CppSendEnd after ");
+
+  msgInterface->CppRecvBegin();
+  auto OREOutput = msgInterface->GetPy2CppStruct();
+  int ret = OREOutput->encodedSelectionInstructions;
+  msgInterface->CppRecvEnd();
 }
 
 double

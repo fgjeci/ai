@@ -346,6 +346,12 @@ main (int argc, char *argv[])
 
   std::string reType = "DRE";
 
+  uint16_t reservationPeriod = 100; // in ms
+  bool enableSensing = true;
+  uint16_t t1 = 2;
+  uint16_t t2 = 33;
+  int slThresPsschRsrp = -110;//-140.4575749056067;//-91.70696227169;//-128;
+
   // end modification
 
   /*
@@ -442,6 +448,24 @@ main (int argc, char *argv[])
   
   cmd.AddValue ("reType", "DRE or ORE simulation type", reType);
 
+  cmd.AddValue ("ReservationPeriod",
+                "The resource reservation period in ms",
+                reservationPeriod);
+  cmd.AddValue ("enableSensing",
+                "If true, it enables the sensing based resource selection for "
+                "SL, otherwise, no sensing is applied",
+                enableSensing);
+  cmd.AddValue ("t1",
+                "The start of the selection window in physical slots, "
+                "accounting for physical layer processing delay",
+                t1);
+  cmd.AddValue ("t2",
+                "The end of the selection window in physical slots",
+                t2);
+  cmd.AddValue ("slThresPsschRsrp",
+                "A threshold in dBm used for sensing based UE autonomous resource selection",
+                slThresPsschRsrp);
+
   std::string nrUeMacTypeNameComplete = "ns3::" +nrUeMacTypeName;
 
   std::cout << "ue mac type " << nrUeMacTypeNameComplete << std::endl;
@@ -464,6 +488,7 @@ main (int argc, char *argv[])
   NrSlCommResourcePool::SchedulingType schedulingTypeValue = static_cast<NrSlCommResourcePool::SchedulingType>(schedulingType);
   // std::cout << "Scheduling type " << schedulingTypeValue << std::endl;
   Config::SetDefault ("ns3::LteUeRrc::V2XSchedulingType", EnumValue (schedulingTypeValue));
+  Config::SetDefault ("ns3::LteEnbRrc::V2XSchedulingType", EnumValue (schedulingTypeValue));
 
   if (schedulingTypeValue ==NrSlCommResourcePool::ORAN_SELECTED){
     e2cuCp = true;
@@ -531,7 +556,7 @@ main (int argc, char *argv[])
     {
       LogLevel logLevel = (LogLevel)(LOG_PREFIX_FUNC | LOG_PREFIX_TIME | LOG_PREFIX_NODE | LOG_LEVEL_ALL | LOG_DEBUG | LOG_LEVEL_FUNCTION);
       // LogComponentEnable ("UdpClient", logLevel);
-      // LogComponentEnable ("UdpServer", logLevel);
+      LogComponentEnable ("NrV2xORE", logLevel);
       LogComponentEnable ("NrHelper", logLevel);
       LogComponentEnable ("NrSlHelper", logLevel);
       // LogComponentEnable ("OREENV", logLevel);
@@ -548,7 +573,6 @@ main (int argc, char *argv[])
       // LogComponentEnable ("NrUePhy", logLevel);
       // LogComponentEnable ("NrPhy", logLevel);
       // LogComponentEnable ("NrSpectrumPhy", logLevel);
-      // LogComponentEnable ("NrSpectrumPhy", LOG_INFO);
       // LogComponentEnable ("NrSlUeMacHarq", logLevel);
       
       // LogComponentEnable ("E2Termination", logLevel);
@@ -614,8 +638,11 @@ main (int argc, char *argv[])
   nrHelper->SetAttribute("TracesPath", StringValue(outputDir + simTag + "/"));
 
   // Put the pointers inside nrHelper
+  NS_LOG_DEBUG("ue mac type complete " << nrUeMacTypeNameComplete
+              << " nr ue mac " << NrUeMac::GetTypeId().GetName()
+              << nrUeMacTypeNameComplete.compare(NrUeMac::GetTypeId().GetName())); 
   nrHelper->SetEpcHelper (epcHelper);
-  if(nrUeMacTypeNameComplete.compare(NrUeMac::GetTypeId().GetName()) == 0){
+  if(nrUeMacTypeNameComplete.compare(NrUeMac::GetTypeId().GetName())){
     nrHelper->SetUeMacTypeId (NrUeMac::GetTypeId());
   }else{
     nrHelper->SetUeMacTypeId(AiNrUeMac::GetTypeId());
@@ -636,7 +663,7 @@ main (int argc, char *argv[])
   OperationBandInfo bandSl = ccBwpCreator.CreateOperationBandContiguousCc (bandConfSl);
 
   
-  nrHelper->SetChannelConditionModelAttribute ("UpdatePeriod", TimeValue (MilliSeconds (0)));
+  nrHelper->SetChannelConditionModelAttribute ("UpdatePeriod", TimeValue (MilliSeconds (100)));
   nrHelper->SetPathlossAttribute ("ShadowingEnabled", BooleanValue (false));
 
   nrHelper->InitializeOperationBand (&bandSl);
@@ -654,13 +681,14 @@ main (int argc, char *argv[])
   nrHelper->SetUePhyAttribute ("TxPower", DoubleValue (txPower));
 
   //NR Sidelink attribute of UE MAC, which are would be common for all the UEs
-  nrHelper->SetUeMacAttribute ("EnableSensing", BooleanValue (false));
-  nrHelper->SetUeMacAttribute ("T1", UintegerValue (2));
-  nrHelper->SetUeMacAttribute ("T2", UintegerValue (33));
+  nrHelper->SetUeMacAttribute ("EnableSensing", BooleanValue (enableSensing));
+  nrHelper->SetUeMacAttribute ("T1", UintegerValue (t1));
+  nrHelper->SetUeMacAttribute ("T2", UintegerValue (t2));
   nrHelper->SetUeMacAttribute ("ActivePoolId", UintegerValue (0));
-  nrHelper->SetUeMacAttribute ("ReservationPeriod", TimeValue (MilliSeconds(100)));
+  nrHelper->SetUeMacAttribute ("ReservationPeriod", TimeValue (MilliSeconds(reservationPeriod)));
   nrHelper->SetUeMacAttribute ("NumSidelinkProcess", UintegerValue (4));
   nrHelper->SetUeMacAttribute ("EnableBlindReTx", BooleanValue (true));
+  nrHelper->SetUeMacAttribute ("SlThresPsschRsrp", IntegerValue (slThresPsschRsrp));
 
 
   // nrHelper->SetUeMacAttribute ("PlmnId", StringValue(ltePlmnId));
@@ -811,7 +839,9 @@ main (int argc, char *argv[])
    * values as per the need.
    */
   // std::vector <std::bitset<1> > slBitmap = {1, 1, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1};
-  std::vector <std::bitset<1> > slBitmap = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
+  // std::vector <std::bitset<1> > slBitmap = {0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
+  // std::vector <std::bitset<1> > slBitmap = {1, 1, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1};
+  std::vector <std::bitset<1> > slBitmap = {1, 1, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 1};
   ptrFactory->SetSlTimeResources (slBitmap);
   ptrFactory->SetSlSensingWindow (100); // T0 in ms
   ptrFactory->SetSlSelectionWindow (5);
@@ -871,7 +901,7 @@ main (int argc, char *argv[])
   //Configure the TddUlDlConfigCommon IE
   LteRrcSap::TddUlDlConfigCommon tddUlDlConfigCommon;
   // tddUlDlConfigCommon.tddPattern = "DL|DL|DL|F|UL|UL|UL|UL|UL|UL|";
-  tddUlDlConfigCommon.tddPattern = "DL|UL|UL|UL|UL|UL|UL|UL|UL|UL|";
+  tddUlDlConfigCommon.tddPattern = "DL|DL|F|UL|UL|UL|UL|UL|UL|UL|";
   //Configure the SlPreconfigGeneralNr IE
   LteRrcSap::SlPreconfigGeneralNr slPreconfigGeneralNr;
   slPreconfigGeneralNr.slTddConfig = tddUlDlConfigCommon;
@@ -1199,6 +1229,8 @@ main (int argc, char *argv[])
 
   // writeCacheSize = 100;
 
+  NS_LOG_DEBUG("WriteCAche " << writeCacheSize);
+
   UeMacPscchTxOutputStats pscchStats;
   pscchStats.SetDb (&db, "pscchTxUeMac", writeCacheSize);
   Config::ConnectWithoutContext ("/NodeList/*/DeviceList/*/$ns3::NrUeNetDevice/ComponentCarrierMapUe/*/NrUeMac/SlPscchScheduling",
@@ -1223,19 +1255,19 @@ main (int argc, char *argv[])
   UeToUePktTxRxOutputStats pktStats;
   pktStats.SetDb (&db, "pktTxRx", writeCacheSize);
 
-  // SlSpectrumStats slSpectrumStats;
-  // slSpectrumStats.SetDb (&db, "slSpectrum", writeCacheSize);
-  // Config::ConnectWithoutContext ("/NodeList/*/DeviceList/*/$ns3::NrUeNetDevice/ComponentCarrierMapUe/*/NrUePhy/NrSpectrumPhyList/*/SlRxFrameCtrlTrace",
-  //                         MakeBoundCallback(&SlStatsHelper::ReportSlSpectrum, &slSpectrumStats, "RX", "CTRL"));
+  SlSpectrumStats slSpectrumStats;
+  slSpectrumStats.SetDb (&db, "slSpectrum", writeCacheSize);
+  Config::ConnectWithoutContext ("/NodeList/*/DeviceList/*/$ns3::NrUeNetDevice/ComponentCarrierMapUe/*/NrUePhy/NrSpectrumPhyList/*/SlRxFrameCtrlTrace",
+                          MakeBoundCallback(&SlStatsHelper::ReportSlSpectrum, &slSpectrumStats, "RX", "CTRL"));
 
-  // Config::ConnectWithoutContext ("/NodeList/*/DeviceList/*/$ns3::NrUeNetDevice/ComponentCarrierMapUe/*/NrUePhy/NrSpectrumPhyList/*/SlRxFrameDataTrace",
-  //                         MakeBoundCallback(&SlStatsHelper::ReportSlSpectrum, &slSpectrumStats, "RX", "DATA"));
+  Config::ConnectWithoutContext ("/NodeList/*/DeviceList/*/$ns3::NrUeNetDevice/ComponentCarrierMapUe/*/NrUePhy/NrSpectrumPhyList/*/SlRxFrameDataTrace",
+                          MakeBoundCallback(&SlStatsHelper::ReportSlSpectrum, &slSpectrumStats, "RX", "DATA"));
   
-  // Config::ConnectWithoutContext ("/NodeList/*/DeviceList/*/$ns3::NrUeNetDevice/ComponentCarrierMapUe/*/NrUePhy/NrSpectrumPhyList/*/SlTxFrameCtrlTrace",
-  //                         MakeBoundCallback(&SlStatsHelper::ReportSlSpectrum, &slSpectrumStats, "TX", "CTRL"));
+  Config::ConnectWithoutContext ("/NodeList/*/DeviceList/*/$ns3::NrUeNetDevice/ComponentCarrierMapUe/*/NrUePhy/NrSpectrumPhyList/*/SlTxFrameCtrlTrace",
+                          MakeBoundCallback(&SlStatsHelper::ReportSlSpectrum, &slSpectrumStats, "TX", "CTRL"));
 
-  // Config::ConnectWithoutContext ("/NodeList/*/DeviceList/*/$ns3::NrUeNetDevice/ComponentCarrierMapUe/*/NrUePhy/NrSpectrumPhyList/*/SlTxFrameDataTrace",
-  //                         MakeBoundCallback(&SlStatsHelper::ReportSlSpectrum, &slSpectrumStats, "TX", "DATA"));
+  Config::ConnectWithoutContext ("/NodeList/*/DeviceList/*/$ns3::NrUeNetDevice/ComponentCarrierMapUe/*/NrUePhy/NrSpectrumPhyList/*/SlTxFrameDataTrace",
+                          MakeBoundCallback(&SlStatsHelper::ReportSlSpectrum, &slSpectrumStats, "TX", "DATA"));
 
   if (!useIPv6)
     {
@@ -1296,7 +1328,7 @@ main (int argc, char *argv[])
     outFile << "time" << "," << "imsi" << "," << "nodeid" << "," << "x" << "," << "y" << "," << "z" << "\n";
   }
   outFile.close();
-  for (uint32_t time = 100; time < finalSimTime.GetMilliSeconds(); time+=100){
+  for (uint32_t time = 100; time < finalSimTime.GetMilliSeconds(); time+=10){
     Simulator::Schedule(MilliSeconds(time), &PrintPosition, ueVoiceNetDev, nodePositionFilename);
   }
 

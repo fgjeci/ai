@@ -29,11 +29,6 @@ import os
 import logging
 from datetime import datetime
 import argparse
-import pandas as pd
-
-_n_mobility_file = "mobilityTraceFile"
-_n_is_urban_scenario = "isUrbanScenario"
-_n_e2_load = "ueNumber"
 
 def Sort(sub_li,n):
     sub_li.sort(key = lambda x: x[n],reverse=True)
@@ -41,8 +36,7 @@ def Sort(sub_li,n):
 
 class ORE:
     def __init__(self, ns3_exec_name: str, ns3_dir: str, output_dir: str = "./", ns3_settings={}, ns3_log_filename= "logfile.log",
-                 ns3_ai_log_filename = "ai_log.log", zone_start=[-2.5,-3], zone_end=[-2.5,-3], 
-                 numUes=200, ue_position_filename = "uePos.csv") -> None:
+                 ns3_ai_log_filename = "ai_log.log") -> None:
         self.output_dir = output_dir
         self.ns3_exec_name = ns3_exec_name
         self.ns3_dir = ns3_dir
@@ -54,8 +48,7 @@ class ORE:
         self.NExGammaX2NSe3 = []
         self.NExGammaX2NSe4 = []
         self.NEx = []
-        self.numUe = 201
-        self.numUeOnScenario = numUes
+        self.numUe = 300
         self.alpha = .5
         self.beta = .5
         self.gamma = .1
@@ -84,25 +77,20 @@ class ORE:
         self.rhoUE = []
         self.bestMode = []
 
+        self.numLanes = 2
+        self.numUePerLane = int(self.numUe/self.numLanes)#this should always be an integer
+        self.dV = 10
+        self.dL = 4
         self.uePos = []
+        self.initialPos = [0,0]
 
         self.dZ = 5
         self.zoneId = []
         self.zoneCenters = []
-        self.zoneStart = zone_start
-        self.zoneEnd = zone_end
-        self.simTimeMs = 0
+        self.zoneStart = [-2.5,-3]
 
         self.t1 = 2
 
-        self.dfUePositionFilename = ue_position_filename
-        self.df_ue_position = None
-
-        self.currentRhoUeEstimateCsvFile = open(os.path.join(output_dir, "currentRhoUeEstimateCsv.csv"), 'w')
-        self.currentDEdgeEstimateCsvFile = open(os.path.join(output_dir, "currentDEdgeEstimateCsv.csv"), 'w')
-        self.lastNumExclusionsCsvFile = open(os.path.join(output_dir, "lastNumExclusionsCsv.csv"), 'w')
-        self.lastRsrpThresholdCsvFile = open(os.path.join(output_dir, "lastRsrpThresholdCsv.csv"), 'w')
-        self.nseCsvFile = open(os.path.join(output_dir, "nse.csv"), 'w')
         self.initialize()
 
 
@@ -172,27 +160,16 @@ class ORE:
             for row in csvReader:
                 self.settingsChoicesRhoUEp4.append([float(x) for x in row[0:]])
 
-        self.df_ue_position = pd.read_csv(self.dfUePositionFilename)
         self.update_ue_pos()
-        self.update_rho_ue_estimate()
-
+        
     def update_ue_pos(self):
-        self.uePos = []
-        _time_sec = int((self.simTimeMs/1000)//1)
-        for i in range(self.numUe):
-            _imsi = i + 1
-            _f_filter_ue = (self.df_ue_position['time'] == _time_sec) & (self.df_ue_position['imsi'] == _imsi)
-            _x = self.df_ue_position[_f_filter_ue]['x'].iloc[0]
-            _y = self.df_ue_position[_f_filter_ue]['y'].iloc[0]
-            # extract the ue position from the file
-            self.uePos.append([_x, _y])
+        for i in range(self.numLanes):
+            for j in range(self.numUePerLane):
+                self.uePos.append([self.initialPos[0]+self.dV*j, self.initialPos[1] + self.dL*i])
 
         #zones are numbered 1 to n (n depends on self.dZ). the bounds of the zones start at -2.5,-3 so that when self.dZ = 5 and self.dV = 5, dL = 4 the zones cleanly fit one UE per zone. this also makes it so when self.dZ = 10
         #there are 4 UE per zone and so on upwards. you could make this cleaner in the sense that you could make it so when self.dZ > 5 you move the origin so it always splits the road in two (a zone boundry 
         #exactly on the road divider) but I dont feel that this is a fair approximation of a real world scenario.
-        _flatten_x_coord = self.zoneEnd[0] - self.zoneStart[0] # the extremes of the x coord
-        _num_dz_zone_x_coord = math.ceil(_flatten_x_coord/self.dZ)
-        self.zoneId = []
         for i in range(self.numUe):
             tempX = 1
             tempY = 1
@@ -200,41 +177,25 @@ class ORE:
                 tempX += 1
             while self.uePos[i][1] > self.zoneStart[1] + self.dZ*(tempY):
                 tempY += 1
-            self.zoneId.append(tempX + int((tempY-1)*_num_dz_zone_x_coord))
+            self.zoneId.append(tempX + int((tempY-1)*self.numUePerLane*(self.dV/self.dZ)))
 
-        self.zoneCenters = []
-        for i in range(len(self.zoneId)):  
-            # change this one as per our scenario  
-            tempY = math.floor((self.zoneId[i] - 1) / _num_dz_zone_x_coord) + 1
-            tempX = ((self.zoneId[i] -1 ) % _num_dz_zone_x_coord) + 1
+        tempX = 1
+        tempY = 1
+        for i in range(self.zoneId[len(self.zoneId)-1]):    
             self.zoneCenters.append([self.zoneStart[0] + (tempX-1)*self.dZ + self.dZ/2,self.zoneStart[1] + (tempY-1)*self.dZ + self.dZ/2])
+            tempX+=1
+            if tempX > self.numUe/2*(self.dV/self.dZ):
+                tempX = 1
+                tempY+=1
 
-        
         # logger.info(self.uePos)
-
-    def update_rho_ue_estimate(self):
-        # update the currentRhoUeEstimate from the data we have from ue position
-        _time_sec = int((self.simTimeMs/1000)//1)
-        _col_name = f"num_ues_in_line_{self.numUeOnScenario}"
-        self.currentRhoUeEstimate = []
-        self.currentRhoUeEstimate.append(0.1) # imsi 0 does not exist
-        for i in range(self.numUeOnScenario):
-            _imsi = i + 1
-            _f_filter_ue = (self.df_ue_position['time'] == _time_sec) & (self.df_ue_position['imsi'] == _imsi)
-            _num_ues_in_same_line = self.df_ue_position[_f_filter_ue][_col_name].iloc[0]
-            _line_length = self.df_ue_position[_f_filter_ue]['lineLength'].iloc[0]
-            self.currentRhoUeEstimate.append(_num_ues_in_same_line/_line_length)
 
     def get_action(self, env):
         logger = logging.getLogger("")
-        # logger.info(f"ORE get action, selectionModeSelectionFlag {env.selectionModeSelectionFlag}")
+        logger.info(f"ORE get action, selectionModeSelectionFlag {env.selectionModeSelectionFlag}")
         # with open(os.path.join(self.output_dir, 'encodedSelectionInstructions.txt'), 'w') as file:
         #     file.write(str(2) + str(1))
         # return float(str(2) + str(1))
-
-        self.simTimeMs = int(float(env.time)//1)
-
-        logger.info(f"Time {env.time} & imsi {env.imsi} & sens flag {env.sensingDataFlag}")
         
         if env.sensingDataFlag == 1:
             self.lastImsi = env.imsi-1-math.floor(env.imsi/256)#this is saved because the functions are called in sequence and NrSlUeMacSchedulerSimple does not have access to imsi. any calls made by NrSlUeMacSchedulerSimple will be related to this imsi though
@@ -283,33 +244,28 @@ class ORE:
                 encodedSrcSlotString = encodedSrcSlotString[2:]
                 encodedSrcScString = encodedSrcScString[1:]
 
-            encodedSelectionInstructions = float(str(2) + str(1))
-            with open(os.path.join(self.output_dir, 'encodedSelectionInstructions.txt'), 'w') as file:
-                file.write(str(2) + str(1))
-            return encodedSelectionInstructions
-
         else:
             if self.lastImsi > -1:#in the first few milliseconds this can be called before any packets are recieved, it doesnt do anything so we just give it dummy values
-                # logger.info("Finding resources ")
-                # logger.info(f"Time {env.time}")
-                # logger.info(self.lastRecievedPackets[self.lastImsi])
+                logger.info("Finding resources ")
+                logger.info(f"Time {env.time}")
+                logger.info(self.lastRecievedPackets[self.lastImsi])
                 # logger.info(env.time)
                 self.selectionModeSelectionCounter+=1
                 ########################################################
                 #estimating rhoUE
-                # if (self.lastImsi > (150/self.dV - 1) and self.lastImsi < (750/self.dV - 150/self.dV - 1)) or (self.lastImsi > (900/self.dV - 1) and self.lastImsi < (1500/self.dV - 150/self.dV - 1)):
+                if (self.lastImsi > (150/self.dV - 1) and self.lastImsi < (750/self.dV - 150/self.dV - 1)) or (self.lastImsi > (900/self.dV - 1) and self.lastImsi < (1500/self.dV - 150/self.dV - 1)):
                     #temp = [abs(x - self.lastRsrpThreshold[self.lastImsi]) for x in gammaX]
                     #closestGammaX = int(temp.index(min(temp)))
-                if self.currentNSe[self.lastImsi] == 1:#we keep self.currentNSe for rhoUE estimation even if it isn't used because selection modde 1 is selected, it is selected later as the last entry of the settings table
-                    self.currentRhoUeEstimate[self.lastImsi] = self.alpha*self.NExGammaX2NSe1[self.lastNumExclusions[self.lastImsi]][int(self.lastRsrpThreshold[self.lastImsi]/3)] + (1-self.alpha)*self.currentRhoUeEstimate[self.lastImsi]
-                elif self.currentNSe[self.lastImsi] == 2:
-                    self.currentRhoUeEstimate[self.lastImsi] = self.alpha*self.NExGammaX2NSe2[self.lastNumExclusions[self.lastImsi]][int(self.lastRsrpThreshold[self.lastImsi]/3)] + (1-self.alpha)*self.currentRhoUeEstimate[self.lastImsi]
-                elif self.currentNSe[self.lastImsi] == 3:
-                    self.currentRhoUeEstimate[self.lastImsi] = self.alpha*self.NExGammaX2NSe3[self.lastNumExclusions[self.lastImsi]][int(self.lastRsrpThreshold[self.lastImsi]/3)] + (1-self.alpha)*self.currentRhoUeEstimate[self.lastImsi]
-                elif self.currentNSe[self.lastImsi] == 4:
-                    self.currentRhoUeEstimate[self.lastImsi] = self.alpha*self.NExGammaX2NSe4[self.lastNumExclusions[self.lastImsi]][int(self.lastRsrpThreshold[self.lastImsi]/3)] + (1-self.alpha)*self.currentRhoUeEstimate[self.lastImsi]
-                # else:#force edge UE to be correct
-                #     self.currentRhoUeEstimate[self.lastImsi] = self.numLanes/self.dV
+                    if self.currentNSe[self.lastImsi] == 1:#we keep self.currentNSe for rhoUE estimation even if it isn't used because selection modde 1 is selected, it is selected later as the last entry of the settings table
+                        self.currentRhoUeEstimate[self.lastImsi] = self.alpha*self.NExGammaX2NSe1[self.lastNumExclusions[self.lastImsi]][int(self.lastRsrpThreshold[self.lastImsi]/3)] + (1-self.alpha)*self.currentRhoUeEstimate[self.lastImsi]
+                    elif self.currentNSe[self.lastImsi] == 2:
+                        self.currentRhoUeEstimate[self.lastImsi] = self.alpha*self.NExGammaX2NSe2[self.lastNumExclusions[self.lastImsi]][int(self.lastRsrpThreshold[self.lastImsi]/3)] + (1-self.alpha)*self.currentRhoUeEstimate[self.lastImsi]
+                    elif self.currentNSe[self.lastImsi] == 3:
+                        self.currentRhoUeEstimate[self.lastImsi] = self.alpha*self.NExGammaX2NSe3[self.lastNumExclusions[self.lastImsi]][int(self.lastRsrpThreshold[self.lastImsi]/3)] + (1-self.alpha)*self.currentRhoUeEstimate[self.lastImsi]
+                    elif self.currentNSe[self.lastImsi] == 4:
+                        self.currentRhoUeEstimate[self.lastImsi] = self.alpha*self.NExGammaX2NSe4[self.lastNumExclusions[self.lastImsi]][int(self.lastRsrpThreshold[self.lastImsi]/3)] + (1-self.alpha)*self.currentRhoUeEstimate[self.lastImsi]
+                else:#force edge UE to be correct
+                    self.currentRhoUeEstimate[self.lastImsi] = self.numLanes/self.dV
                 #logger.info('*')
                 
                 #logger.info(len(self.lastRecievedPackets[self.lastImsi]))
@@ -324,7 +280,7 @@ class ORE:
                     #logger.info(self.zoneCenters[self.zoneId[self.lastRecievedPackets[self.lastImsi][i][0]]-1][0])
                     #logger.info(self.zoneCenters[self.zoneId[self.lastImsi]-1][1])
                     #logger.info(self.zoneCenters[self.zoneId[self.lastRecievedPackets[self.lastImsi][i][0]]-1][1])
-                    distFromRx.append(math.sqrt((self.zoneCenters[self.lastImsi][0] - self.zoneCenters[self.lastRecievedPackets[self.lastImsi][i][0]][0])**2 + (self.zoneCenters[self.lastImsi][1] - self.zoneCenters[self.lastRecievedPackets[self.lastImsi][i][0]][1])**2))
+                    distFromRx.append(math.sqrt((self.zoneCenters[self.zoneId[self.lastImsi]-1][0] - self.zoneCenters[self.zoneId[self.lastRecievedPackets[self.lastImsi][i][0]]-1][0])**2 + (self.zoneCenters[self.zoneId[self.lastImsi]-1][1] - self.zoneCenters[self.zoneId[self.lastRecievedPackets[self.lastImsi][i][0]]-1][1])**2))
                 #if self.lastImsi == 234:
                 #    logger.info('****************************************************************************************')
                 #    logger.info(distFromRx)
@@ -345,34 +301,31 @@ class ORE:
                 else:
                     self.currentDEdgeEstimate[self.lastImsi] = self.currentDEdgeEstimate[self.lastImsi]
                 
-                if self.lastNumExclusions[self.lastImsi] > 0:
-                    # self.currentRhoUeEstimateCsv.append([env.time] + self.currentRhoUeEstimate)
-                    # self.currentDEdgeEstimateCsv.append([env.time] + self.currentDEdgeEstimate)
-                    # self.lastNumExclusionsCsv.append([env.time] + self.lastNumExclusions)
-                    # self.lastRsrpThresholdCsv.append([env.time] + self.lastRsrpThreshold)
-                    
-                    writer = csv.writer(self.currentRhoUeEstimateCsvFile, delimiter=',')
-                    writer.writerow([env.time, env.imsi, self.currentRhoUeEstimate[self.lastImsi]])
-                    writer = csv.writer(self.currentDEdgeEstimateCsvFile, delimiter=',')
-                    writer.writerow([env.time, env.imsi, self.currentDEdgeEstimate[self.lastImsi]])
-                    writer = csv.writer(self.lastNumExclusionsCsvFile, delimiter=',')
-                    writer.writerow([env.time, env.imsi, self.lastNumExclusions[self.lastImsi]])
-                    writer = csv.writer(self.lastRsrpThresholdCsvFile, delimiter=',')
-                    writer.writerow([env.time, env.imsi, self.lastRsrpThreshold[self.lastImsi]])
+                if self.lastNumExclusions[self.lastImsi] > 0 and self.lastImsi == 75:
+                    self.currentRhoUeEstimateCsv.append([env.time] + self.currentRhoUeEstimate)
+                    self.currentDEdgeEstimateCsv.append([env.time] + self.currentDEdgeEstimate)
+                    self.lastNumExclusionsCsv.append([env.time] + self.lastNumExclusions)
+                    self.lastRsrpThresholdCsv.append([env.time] + self.lastRsrpThreshold)
+                #    with open('self.currentDEdgeEstimate.csv', 'a', newline='') as csvFile:
+                #        writer = csv.writer(csvFile,delimiter=',')
+                #        writer.writerow(temp1)
+                #    with open('self.currentRhoUeEstimate.csv', 'a', newline='') as csvFile:
+                #        writer = csv.writer(csvFile,delimiter=',')
+                #        writer.writerow(temp3)
                 L = []
                 #logger.info('*')
                 R = []
                 for i in range(len(self.lastRecievedPackets[self.lastImsi])):
-                    if distFromRx[i] >= self.currentDEdgeEstimate[self.lastImsi] and (self.zoneCenters[self.lastImsi][0] - self.zoneCenters[self.lastRecievedPackets[self.lastImsi][i][0]][0]) < 0:
+                    if distFromRx[i] >= self.currentDEdgeEstimate[self.lastImsi] and (self.zoneCenters[self.zoneId[self.lastImsi]-1][0] - self.zoneCenters[self.zoneId[self.lastRecievedPackets[self.lastImsi][i][0]]-1][0]) < 0:
                         L.append(self.lastRecievedPackets[self.lastImsi][i] + [distFromRx[i]])
-                    if distFromRx[i] >= self.currentDEdgeEstimate[self.lastImsi] and (self.zoneCenters[self.lastImsi][0] - self.zoneCenters[self.lastRecievedPackets[self.lastImsi][i][0]][0]) > 0:
+                    if distFromRx[i] >= self.currentDEdgeEstimate[self.lastImsi] and (self.zoneCenters[self.zoneId[self.lastImsi]-1][0] - self.zoneCenters[self.zoneId[self.lastRecievedPackets[self.lastImsi][i][0]]-1][0]) > 0:
                         R.append(self.lastRecievedPackets[self.lastImsi][i] + [distFromRx[i]])
                 #if self.lastImsi == 234:
                 #    logger.info(env.time)
                 #logger.info(L)
                 #logger.info(R)
                 #logger.info('**')
-                # logger.info(self.currentRhoUeEstimate[self.lastImsi])
+                logger.info(self.currentRhoUeEstimate[self.lastImsi])
                 ########################################################
                 #getting selection mode
                 if self.currentRhoUeEstimate[self.lastImsi] <= .15:
@@ -516,12 +469,12 @@ class ORE:
                                 settingsChoice = i
                 ########################################################
                 #logger.info('*')
-                # logger.info(selectionMode)
+                logger.info(selectionMode)
                 
                 #getting parameters to send depending on selection mode
                 if selectionMode == 1:
-                    # logger.info(sortedLChoices)
-                    # logger.info(sortedRChoices)
+                    logger.info(sortedLChoices)
+                    logger.info(sortedRChoices)
                     if self.currentRhoUeEstimate[self.lastImsi] <= .15:
                         temp = str(selectionMode) + str(int(self.settingsChoicesRhoUEp1[int(settingsChoice)][0]))
                         self.currentNSe[self.lastImsi] = int(self.settingsChoicesRhoUEp1[len(self.settingsChoicesRhoUEp1)-1][2])
@@ -608,9 +561,9 @@ class ORE:
                                     temp = temp + str(chosenSlot) + str(chosenSubChannel)
                                 else:#zeros padding to keep size consisant
                                     temp = temp + str(0) + str(chosenSlot) + str(chosenSubChannel)
-                    # logger.info("apple")
+                    logger.info("apple")
                     encodedSelectionInstructions = float(temp)
-                    # logger.info(f"Writing selec instruction: {encodedSelectionInstructions}")
+                    logger.info(f"Writing selec instruction: {encodedSelectionInstructions}")
                     with open(os.path.join(self.output_dir, 'encodedSelectionInstructions.txt'), 'w') as file:
                         file.write(temp)
                     return encodedSelectionInstructions
@@ -625,17 +578,15 @@ class ORE:
                     elif self.currentRhoUeEstimate[self.lastImsi] > .3:
                         NSe = int(self.settingsChoicesRhoUEp4[int(settingsChoice)][2])
                         self.currentNSe[self.lastImsi] = NSe
-                    # logger.info("banana")
+                    logger.info("banana")
                     encodedSelectionInstructions = float(str(selectionMode) + str(NSe))
-                    # logger.info(f"Writing selec instruction: {encodedSelectionInstructions}")
-                    wr = csv.writer(self.nseCsvFile, delimiter=',')
-                    wr.writerow([env.time, env.imsi, self.currentNSe[self.lastImsi]])
+                    logger.info(f"Writing selec instruction: {encodedSelectionInstructions}")
                     with open(os.path.join(self.output_dir, 'encodedSelectionInstructions.txt'), 'w') as file:
                         file.write(str(selectionMode) + str(NSe))
                     return encodedSelectionInstructions
 
             else:#this condition is only triggered in the first few miliseconds, after the initial selection and before any reselection happen. It will be overwritten by the first reselection.
-                # logger.info("pear")
+                logger.info("pear")
                 #logger.info(float(str(2) + str(1)))
                 encodedSelectionInstructions = float(str(2) + str(1))
                 with open(os.path.join(self.output_dir, 'encodedSelectionInstructions.txt'), 'w') as file:
@@ -661,7 +612,7 @@ class ORE:
 
         try:
             while True:
-                # logger.info("ORE run")
+                logger.info("ORE run")
                 msgInterface.PyRecvBegin()
                 msgInterface.PySendBegin()
                 if msgInterface.PyGetFinished():
@@ -700,9 +651,6 @@ class ORE:
             logger.info(self.currentNSe)
             logger.info(self.selectionModeSelectionCounter)
             logger.info(self.OReCounter)
-            logger.info(self.zoneCenters)
-            logger.info(self.lastRecievedPackets)
-            logger.info(self.lastImsi)
             with open(os.path.join(self.output_dir,'currentDEdgeEstimate.csv'), 'a', newline='') as csvFile:
                 writer = csv.writer(csvFile,delimiter=',')
                 writer.writerows(self.currentDEdgeEstimateCsv)
@@ -753,27 +701,11 @@ if __name__ == '__main__':
     # logger.info("Parsed args")
     # logger.info(args)
 
-    # to change if the scenario changes
-    # points where the zone starts and ends
-    _urban_zone_start = [3, 9]
-    _urban_zone_end = [637, 535]
-    _highway_zone_start = [-2, -314]
-    _highway_zone_end = [334, 1375]
-
-    _ns3_settings = eval(args.ns3SettingsStr)
-    _mibility_filename = _ns3_settings[_n_mobility_file]
-    _base_path = os.path.join(*_mibility_filename.split("/")[:-1])
-    _remaining_filename = f"ue_position_density_{'urban' if _ns3_settings[_n_is_urban_scenario] else 'highway'}.csv"
-
     _ore = ORE( args.execFilename, args.simulationDirectory, 
                 output_dir = args.outputDirectory, 
                 ns3_log_filename= args.ns3LogFileName,
                 ns3_ai_log_filename = args.aiLogFileName,
-                ns3_settings = _ns3_settings,
-                numUes = _ns3_settings[_n_e2_load], 
-                ue_position_filename = os.path.join("/",_base_path, _remaining_filename),
-                zone_start=_urban_zone_start if _ns3_settings[_n_is_urban_scenario] else _highway_zone_start,
-                zone_end=_urban_zone_end if _ns3_settings[_n_is_urban_scenario] else _highway_zone_end,
+                ns3_settings = eval(args.ns3SettingsStr),
             )
     
 

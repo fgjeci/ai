@@ -28,11 +28,6 @@ import math
 import logging
 from datetime import datetime
 import argparse
-import pandas as pd
-
-_n_mobility_file = "mobilityTraceFile"
-_n_is_urban_scenario = "isUrbanScenario"
-_n_e2_load = "ueNumber"
 
 def Sort(sub_li,n):
     sub_li.sort(key = lambda x: x[n],reverse=True)
@@ -40,8 +35,7 @@ def Sort(sub_li,n):
 
 class ORE:
     def __init__(self, ns3_exec_name: str, ns3_dir: str, output_dir: str = "./", ns3_settings={}, ns3_log_filename= "logfile.log",
-                 ns3_ai_log_filename = "ai_log.log", 
-                 numUes=200, ue_position_filename = "uePos.csv") -> None:
+                 ns3_ai_log_filename = "ai_log.log") -> None:
         self.output_dir = output_dir
         self.ns3_exec_name = ns3_exec_name
         self.ns3_dir = ns3_dir
@@ -56,7 +50,7 @@ class ORE:
         self.settingsChoicesRhoUEp1 = []
         self.settingsChoicesRhoUEp2 = []
         self.settingsChoicesRhoUEp4 = []
-        self.numUe = 201
+        self.numUe = 300
         self.alpha = 1
         self.lastNumExclusions = [1000]*self.numUe
         self.lastNumExclusionsCsv = []
@@ -70,17 +64,9 @@ class ORE:
         
         self.dV = 10
         self.numLanes = 2
+        
 
-        self.simTimeMs = 0
-        self.numUeOnScenario = numUes
-        self.dfUePositionFilename = ue_position_filename
-        self.df_ue_position = None
         self.initialize()
-
-        self.currentRhoUeEstimateCsvFile = open(os.path.join(output_dir, "rho_estimate.csv"), 'w')
-        self.lastNumExclusionsCsvFile = open(os.path.join(output_dir, "last_num_exclusions.csv"), 'w')
-        self.lastRsrpThresholdCsvFile = open(os.path.join(output_dir, "last_rsrp_threshold.csv"), 'w')
-        self.nseCsvFile = open(os.path.join(output_dir, "nse.csv"), 'w')
 
     def initialize(self):
         logger = logging.getLogger("")
@@ -138,93 +124,46 @@ class ORE:
             for row in csvReader:
                 self.settingsChoicesRhoUEp4.append([float(x) for x in row[0:]])
 
-        self.df_ue_position = pd.read_csv(self.dfUePositionFilename)
-        self.update_rho_ue_estimate()
-
-    def update_rho_ue_estimate(self):
-        # update the currentRhoUeEstimate from the data we have from ue position
-        _time_sec = int((self.simTimeMs/1000)//1)
-        _col_name = f"num_ues_in_line_{self.numUeOnScenario}"
-        # print(f"Col name: {_col_name}")
-        # print(f"All cols: {self.df_ue_position.columns}")
-        self.currentRhoUeEstimate = []
-        self.currentRhoUeEstimate.append(0.1) # imsi 0 does not exist
-        for i in range(self.numUeOnScenario):
-            _imsi = i + 1
-            # print(f"Imsi: {_imsi} &time {_time_sec}")
-            _f_filter_ue = (self.df_ue_position['time'] == _time_sec) & (self.df_ue_position['imsi'] == _imsi)
-            # print(f"Shape {self.df_ue_position[_f_filter_ue].shape}")
-            # print(f"Col values {self.df_ue_position[_f_filter_ue][_col_name]}")
-            # print(f"Col values {self.df_ue_position[_f_filter_ue][_col_name].iloc[0]}")
-            _num_ues_in_same_line = self.df_ue_position[_f_filter_ue][_col_name].iloc[0]
-            _line_length = self.df_ue_position[_f_filter_ue]['lineLength'].iloc[0]
-            self.currentRhoUeEstimate.append(_num_ues_in_same_line/_line_length)
 
     def get_action(self, env):
         logger = logging.getLogger("")
-        # logger.info(f"DRE get action, selectionModeSelectionFlag {env.selectionModeSelectionFlag}" )
+        logger.info(f"DRE get action, selectionModeSelectionFlag {env.selectionModeSelectionFlag}" )
         # with open(os.path.join(self.output_dir, 'encodedSelectionInstructions.txt'), 'w') as file:
         #     file.write(str(2) + str(1))
         # return float(str(2) + str(1))
-
-        logger.info(f"Time {env.time} & imsi {env.imsi} & sens flag {env.sensingDataFlag}")
-        # logger.info(f"{env.imsi} {env.time} {env.occupiedResources} {env.rsrpThreshold} "
-        #             f"{env.srcRnti} {env.Rc} {env.srcSlotNum} {env.srcScNum} {env.index} " 
-        #             f"{env.estimatorUpdateFlag} {env.addRecievedPacketFlag} {env.selectionModeSelectionFlag} "
-        #             f"{env.getNumResourcesSelectedFlag} {env.getChosenSlotFlag} {env.getChosenSubChannelFlag} "
-        #             f"{env.NSeQueryFlag} {env.firstCallFlag} {env.encodedSrcRnti} {env.encodedRc} {env.encodedSrcSlot} "
-        #             f"{env.encodedSrcSc} {env.sensingDataFlag}")
-
-        self.simTimeMs = int(float(env.time)//1)
         
         if env.sensingDataFlag == 1:
             self.lastImsi = env.imsi-1-math.floor(env.imsi/256)#this is saved because the functions are called in sequence and NrSlUeMacSchedulerSimple does not have access to imsi. any calls made by NrSlUeMacSchedulerSimple will be related to this imsi though
             self.lastNumExclusions[self.lastImsi] = env.occupiedResources
             self.lastRsrpThreshold[self.lastImsi] = env.rsrpThreshold + 110 - 3
-            # logger.info("sensing data flag")
-            # returning empty data to make the program go on
-            encodedSelectionInstructions = float(str(2) + str(1))
-            with open(os.path.join(self.output_dir, 'encodedSelectionInstructions.txt'), 'w') as file:
-                file.write(str(2) + str(1))
-            return encodedSelectionInstructions
         else:
             if self.lastImsi > -1:#in the first few milliseconds this can be called before any packets are recieved, it doesnt do anything so we just give it dummy values
-                # logger.info("Finding resources ")
-                # logger.info(f"Time {env.time}")
+                logger.info("Finding resources ")
+                logger.info(f"Time {env.time}")
 
                 ########################################################
                 #estimating rhoUE
-                # if (self.lastImsi > (150/self.dV - 1) and self.lastImsi < (750/self.dV - 150/self.dV - 1)) or (self.lastImsi > (900/self.dV - 1) and self.lastImsi < (1500/self.dV - 150/self.dV - 1)):
-                #     #temp = [abs(x - lastRsrpThreshold[self.lastImsi]) for x in gammaX]
-                #     #closestGammaX = int(temp.index(min(temp)))
-                if self.currentNSe[self.lastImsi] == 1:#we keep self.currentNSe for rhoUE estimation even if it isn't used because selection modde 1 is selected, it is selected later as the last entry of the settings table
-                    self.currentRhoUeEstimate[self.lastImsi] = self.alpha*self.NExGammaX2NSe1[self.lastNumExclusions[self.lastImsi]][int(self.lastRsrpThreshold[self.lastImsi]/3)] + (1-self.alpha)*self.currentRhoUeEstimate[self.lastImsi]
-                elif self.currentNSe[self.lastImsi] == 2:
-                    self.currentRhoUeEstimate[self.lastImsi] = self.alpha*self.NExGammaX2NSe2[self.lastNumExclusions[self.lastImsi]][int(self.lastRsrpThreshold[self.lastImsi]/3)] + (1-self.alpha)*self.currentRhoUeEstimate[self.lastImsi]
-                elif self.currentNSe[self.lastImsi] == 3:
-                    self.currentRhoUeEstimate[self.lastImsi] = self.alpha*self.NExGammaX2NSe3[self.lastNumExclusions[self.lastImsi]][int(self.lastRsrpThreshold[self.lastImsi]/3)] + (1-self.alpha)*self.currentRhoUeEstimate[self.lastImsi]
-                elif self.currentNSe[self.lastImsi] == 4:
-                    self.currentRhoUeEstimate[self.lastImsi] = self.alpha*self.NExGammaX2NSe4[self.lastNumExclusions[self.lastImsi]][int(self.lastRsrpThreshold[self.lastImsi]/3)] + (1-self.alpha)*self.currentRhoUeEstimate[self.lastImsi]
-                # else:#force edge UE to be correct
-                #     self.currentRhoUeEstimate[self.lastImsi] = self.numLanes/self.dV
-
-                # create the real estimator
-
+                if (self.lastImsi > (150/self.dV - 1) and self.lastImsi < (750/self.dV - 150/self.dV - 1)) or (self.lastImsi > (900/self.dV - 1) and self.lastImsi < (1500/self.dV - 150/self.dV - 1)):
+                    #temp = [abs(x - lastRsrpThreshold[self.lastImsi]) for x in gammaX]
+                    #closestGammaX = int(temp.index(min(temp)))
+                    if self.currentNSe[self.lastImsi] == 1:#we keep self.currentNSe for rhoUE estimation even if it isn't used because selection modde 1 is selected, it is selected later as the last entry of the settings table
+                        self.currentRhoUeEstimate[self.lastImsi] = self.alpha*self.NExGammaX2NSe1[self.lastNumExclusions[self.lastImsi]][int(self.lastRsrpThreshold[self.lastImsi]/3)] + (1-self.alpha)*self.currentRhoUeEstimate[self.lastImsi]
+                    elif self.currentNSe[self.lastImsi] == 2:
+                        self.currentRhoUeEstimate[self.lastImsi] = self.alpha*self.NExGammaX2NSe2[self.lastNumExclusions[self.lastImsi]][int(self.lastRsrpThreshold[self.lastImsi]/3)] + (1-self.alpha)*self.currentRhoUeEstimate[self.lastImsi]
+                    elif self.currentNSe[self.lastImsi] == 3:
+                        self.currentRhoUeEstimate[self.lastImsi] = self.alpha*self.NExGammaX2NSe3[self.lastNumExclusions[self.lastImsi]][int(self.lastRsrpThreshold[self.lastImsi]/3)] + (1-self.alpha)*self.currentRhoUeEstimate[self.lastImsi]
+                    elif self.currentNSe[self.lastImsi] == 4:
+                        self.currentRhoUeEstimate[self.lastImsi] = self.alpha*self.NExGammaX2NSe4[self.lastNumExclusions[self.lastImsi]][int(self.lastRsrpThreshold[self.lastImsi]/3)] + (1-self.alpha)*self.currentRhoUeEstimate[self.lastImsi]
+                else:#force edge UE to be correct
+                    self.currentRhoUeEstimate[self.lastImsi] = self.numLanes/self.dV
 
                 ########################################################
                 #recording data
-                if self.lastNumExclusions[self.lastImsi] > 0:
-                    # self.currentRhoUeEstimateCsv.append([env.time] + self.currentRhoUeEstimate)
-                    # self.lastNumExclusionsCsv.append([env.time] + self.lastNumExclusions)
-                    # self.lastRsrpThresholdCsv.append([env.time] + self.lastRsrpThreshold)
-                    wr = csv.writer(self.currentRhoUeEstimateCsvFile, quoting=csv.QUOTE_NONE, escapechar='', quotechar='', delimiter=',')
-                    wr.writerow([env.time, env.imsi, self.currentRhoUeEstimate[self.lastImsi]])
-                    wr = csv.writer(self.lastNumExclusionsCsvFile, quoting=csv.QUOTE_NONE, escapechar='', quotechar='', delimiter=',')
-                    wr.writerow([env.time, env.imsi, self.lastNumExclusions[self.lastImsi]])
-                    wr = csv.writer(self.lastRsrpThresholdCsvFile, quoting=csv.QUOTE_NONE, escapechar='', quotechar='', delimiter=',')
-                    wr.writerow([env.time, env.imsi, self.lastRsrpThreshold[self.lastImsi]])
-                
-                # logger.info(self.currentRhoUeEstimate[self.lastImsi])
+                if self.lastNumExclusions[self.lastImsi] > 0 and self.lastImsi == 75:
+                    self.currentRhoUeEstimateCsv.append([env.time] + self.currentRhoUeEstimate)
+                    self.lastNumExclusionsCsv.append([env.time] + self.lastNumExclusions)
+                    self.lastRsrpThresholdCsv.append([env.time] + self.lastRsrpThreshold)
+                logger.info(self.currentRhoUeEstimate[self.lastImsi])
                 
                 ########################################################
                 #setting new NSe
@@ -237,17 +176,13 @@ class ORE:
                 elif self.currentRhoUeEstimate[self.lastImsi] > .3:
                     NSe = int(self.settingsChoicesRhoUEp4[int(len(self.settingsChoicesRhoUEp4)-1)][2])
                     self.currentNSe[self.lastImsi] = NSe
-
-
-                wr = csv.writer(self.nseCsvFile, quoting=csv.QUOTE_NONE, escapechar='', quotechar='', delimiter=',')
-                wr.writerow([env.time, self.lastImsi, self.currentNSe[self.lastImsi]])
                 encodedSelectionInstructions = float(str(2) + str(NSe))
                 with open(os.path.join(self.output_dir, 'encodedSelectionInstructions.txt'), 'w') as file:
                     file.write(str(2) + str(NSe))
                 return encodedSelectionInstructions
 
             else:#this condition is only triggered in the first few miliseconds, after the initial selection and before any reselection happen. It will be overwritten by the first reselection.
-                # logger.info("pear")
+                logger.info("pear")
                 #print(float(str(2) + str(1)))
                 encodedSelectionInstructions = float(str(2) + str(1))
                 with open(os.path.join(self.output_dir, 'encodedSelectionInstructions.txt'), 'w') as file:
@@ -272,24 +207,17 @@ class ORE:
 
         try:
             while True:
-                # logger.info("DRE run: start receiving")
+                logger.info("DRE run")
                 msgInterface.PyRecvBegin()
-                # logger.info("Py recv begin")
-                if msgInterface.PyGetFinished():
-                    logger.info("breaking py get finished")
-                    break
-                # msgInterface.GetPy2CppStruct().encodedSelectionInstructions = (
-                #     self.get_action(msgInterface.GetCpp2PyStruct()))
-                encodedSelectionInstructionss = self.get_action(msgInterface.GetCpp2PyStruct())
-                msgInterface.PyRecvEnd()
-                # logger.info("Py recv end")
                 msgInterface.PySendBegin()
-                # logger.info("Py send begin")
-                msgInterface.GetPy2CppStruct().encodedSelectionInstructions = (encodedSelectionInstructionss)
+                if msgInterface.PyGetFinished():
+                    break
+
+                msgInterface.GetPy2CppStruct().encodedSelectionInstructions = (
+                    self.get_action(msgInterface.GetCpp2PyStruct()))
+            
+                msgInterface.PyRecvEnd()
                 msgInterface.PySendEnd()
-                # logger.info("Py send end")
-                # logger.info(f"Action completed imsi {msgInterface.GetCpp2PyStruct().imsi} & time {msgInterface.GetCpp2PyStruct().time}")
-                
 
         except Exception as e:
             
@@ -351,17 +279,12 @@ if __name__ == '__main__':
 
     # logger.info("Parsed args")
     # logger.info(args)
-    _ns3_settings = eval(args.ns3SettingsStr)
-    _mibility_filename = _ns3_settings[_n_mobility_file]
-    _base_path = os.path.join(*_mibility_filename.split("/")[:-1])
-    _remaining_filename = f"ue_position_density_{'urban' if _ns3_settings[_n_is_urban_scenario] else 'highway'}.csv"
+
     _ore = ORE( args.execFilename, args.simulationDirectory, 
                 output_dir = args.outputDirectory, 
                 ns3_log_filename= args.ns3LogFileName,
                 ns3_ai_log_filename = args.aiLogFileName,
-                ns3_settings = _ns3_settings,
-                numUes = _ns3_settings[_n_e2_load], 
-                ue_position_filename = os.path.join("/", _base_path, _remaining_filename)
+                ns3_settings = eval(args.ns3SettingsStr),
             )
     
 

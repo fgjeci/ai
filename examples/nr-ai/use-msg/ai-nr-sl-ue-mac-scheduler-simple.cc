@@ -104,6 +104,13 @@ AiNrSlUeMacSchedulerSimple::DoNrSlAllocation (const std::list <NrSlUeMacSchedSap
 
   uint32_t bufferSize = lcgMap.begin ()->second->GetTotalSizeOfLC (lcVector.at (0));
 
+  NS_LOG_DEBUG("Buffer size " << bufferSize);
+  if (m_OReExp)
+  {
+    double encodedSelectionInstructions = m_OReEnv->getResourceSelections(0);
+    encodedSelectionInstructions++;//dummy for the moment
+  }
+
   if (bufferSize == 0)
     {
       return allocated;
@@ -115,8 +122,8 @@ AiNrSlUeMacSchedulerSimple::DoNrSlAllocation (const std::list <NrSlUeMacSchedSap
   if (m_OReExp)
   {
     
-    double encodedSelectionInstructions = m_OReEnv->getResourceSelections(0);
-    encodedSelectionInstructions++;//dummy for the moment
+    // double encodedSelectionInstructions = m_OReEnv->getResourceSelections(0);
+    // encodedSelectionInstructions++;//dummy for the moment
     std::ifstream f(m_tracesPath + "encodedSelectionInstructions.txt");
     std::ostringstream ss;
     ss << f.rdbuf();

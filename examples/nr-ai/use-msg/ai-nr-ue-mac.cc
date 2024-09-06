@@ -394,8 +394,16 @@ AiNrUeMac::GetNrSlTxOpportunities (const SfnSf& sfn)
         ofs4.close();
 
         sleep(.1);
-
-        m_OReEnv->passSensingData(int(m_imsi),double(Simulator::Now ().GetSeconds ()*1000),int(rsrpThrehold),int(eliminatedResources),std::stold(encodedSrcRnti),std::stold(encodedRc),std::stold(encodedSrcSlot),std::stold(encodedSrcSc),1);
+        NS_LOG_DEBUG("Passing sensing data: imsi " << int(m_imsi) 
+                      << " time " << double(Simulator::Now ().GetSeconds ()*1000)
+                      << " RSRP threshold " << int(rsrpThrehold)
+                      << " remaining " << int(eliminatedResources)
+                      << " " << std::stold(encodedSrcRnti)
+                      << " " << std::stold(encodedRc)
+                      << " " << std::stold(encodedSrcSlot)
+                      << " " << std::stold(encodedSrcSc));
+        m_OReEnv->passSensingData(int(m_imsi),double(Simulator::Now ().GetSeconds ()*1000),int(rsrpThrehold),int(eliminatedResources),
+                                  std::stold(encodedSrcRnti),std::stold(encodedRc),std::stold(encodedSrcSlot),std::stold(encodedSrcSc),1);
       }
       // ore
 
