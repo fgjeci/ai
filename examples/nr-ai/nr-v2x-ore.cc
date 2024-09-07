@@ -569,7 +569,7 @@ main (int argc, char *argv[])
       // LogComponentEnable ("BandwidthPartGnb", logLevel);
       
       // LogComponentEnable ("AiNrUeMac", logLevel);
-      LogComponentEnable ("NrUeMac", logLevel);
+      // LogComponentEnable ("NrUeMac", logLevel);
       // LogComponentEnable ("NrUePhy", logLevel);
       // LogComponentEnable ("NrPhy", logLevel);
       // LogComponentEnable ("NrSpectrumPhy", logLevel);
