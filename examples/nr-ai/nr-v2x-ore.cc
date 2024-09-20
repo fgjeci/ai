@@ -338,6 +338,7 @@ main (int argc, char *argv[])
 
   std::string mobilityTraceFile = outputDir + simTag +  "/new_mobility.tcl";
   std::string buildingsFile = outputDir + simTag + "/buildings_pos.csv";
+  std::string ueInitialPositionFile = outputDir + simTag + "/ueInitialPosition.csv";
   bool isUrbanScenario = true;
 
   uint32_t interMessageSleepMs = 1000;
@@ -436,6 +437,9 @@ main (int argc, char *argv[])
   cmd.AddValue("buildingsFile",
           "Buildings file",
           buildingsFile);
+  cmd.AddValue("ueInitialPositionFile",
+          "Buildings file",
+          ueInitialPositionFile);
   cmd.AddValue("isUrbanScenario",
               "Is urban scenario",
               isUrbanScenario);
@@ -538,9 +542,9 @@ main (int argc, char *argv[])
 
   Config::SetDefault ("ns3::LteRlcUm::MaxTxBufferSize", UintegerValue(999999999));
 
-  if (schedulingTypeValue ==NrSlCommResourcePool::ORAN_SELECTED){
+  // if (schedulingTypeValue ==NrSlCommResourcePool::ORAN_SELECTED){
     Config::SetDefault ("ns3::LteRlcUm::ReorderingTimer", TimeValue(MilliSeconds(1)));
-  }
+  // }
 
   // ParametersConfig::CreateTracesDir(params);
 
@@ -605,20 +609,28 @@ main (int argc, char *argv[])
   Ns2MobilityHelper ns2 = Ns2MobilityHelper(mobilityTraceFile);
 
   NodeContainer enbNodes;
-  enbNodes.Create (7);
+  enbNodes.Create (3);
 
   NodeContainer ueVoiceContainer;
   ueVoiceContainer.Create (ueNum);
 
   MobilityHelper mobility;
   mobility.SetMobilityModel ("ns3::ConstantPositionMobilityModel");
+  std::vector<std::vector<double>> ueInitialPositionVector = readCSV(ueInitialPositionFile);
   Ptr<ListPositionAllocator> positionAllocUe = CreateObject<ListPositionAllocator> ();
-  for (uint16_t i = 0; i < ueNum; i++)
-    {
-      positionAllocUe->Add (Vector (interUeDistance * i, 0.0, 1.5));
-    }
+  // for (uint16_t i = 0; i < ueNum; i++)
+  //   {
+  //     positionAllocUe->Add (Vector (interUeDistance * i, 0.0, 1.5));
+  //   }
+  for (int i = 0; i<(int) ueNum; ++i){
+  // for (int i = 0; i<(int) 1; ++i){
+    std::vector<double> uePosVec = ueInitialPositionVector[i];
+    positionAllocUe->Add (Vector (uePosVec[0], uePosVec[1], 1.5));
+  }
   mobility.SetPositionAllocator (positionAllocUe);
   mobility.Install (ueVoiceContainer);
+
+  ns2.Install();
 
   double rho = 500;
   // Ptr<UniformDiscPositionAllocator> uePositionAlloc = CreateObject<UniformDiscPositionAllocator> ();
@@ -663,11 +675,8 @@ main (int argc, char *argv[])
 
   // By using the configuration created, it is time to make the operation bands
   OperationBandInfo bandSl = ccBwpCreator.CreateOperationBandContiguousCc (bandConfSl);
-
-  
   nrHelper->SetChannelConditionModelAttribute ("UpdatePeriod", TimeValue (MilliSeconds (100)));
   nrHelper->SetPathlossAttribute ("ShadowingEnabled", BooleanValue (false));
-
   nrHelper->InitializeOperationBand (&bandSl);
   allBwps = CcBwpCreator::GetAllBwps ({bandSl});
 
@@ -675,13 +684,10 @@ main (int argc, char *argv[])
   Packet::EnablePrinting ();
 
   epcHelper->SetAttribute ("S1uLinkDelay", TimeValue (MilliSeconds (0)));
-
   nrHelper->SetUeAntennaAttribute ("NumRows", UintegerValue (1));
   nrHelper->SetUeAntennaAttribute ("NumColumns", UintegerValue (2));
   nrHelper->SetUeAntennaAttribute ("AntennaElement", PointerValue (CreateObject<IsotropicAntennaModel> ()));
-
   nrHelper->SetUePhyAttribute ("TxPower", DoubleValue (txPower));
-
   //NR Sidelink attribute of UE MAC, which are would be common for all the UEs
   nrHelper->SetUeMacAttribute ("EnableSensing", BooleanValue (enableSensing));
   nrHelper->SetUeMacAttribute ("T1", UintegerValue (t1));
@@ -720,20 +726,20 @@ main (int argc, char *argv[])
   // position the base stations
   Ptr<ListPositionAllocator> enbPositionAlloc = CreateObject<ListPositionAllocator> ();
   if (isUrbanScenario){
-    enbPositionAlloc->Add (Vector (302.97, 302.10, 35));
+    // enbPositionAlloc->Add (Vector (302.97, 302.10, 35));
     enbPositionAlloc->Add (Vector (297.62, 533.08, 35));
-    enbPositionAlloc->Add (Vector (30.28, 415.45, 35));
-    enbPositionAlloc->Add (Vector (592.76, 412.24, 35));
+    // enbPositionAlloc->Add (Vector (30.28, 415.45, 35));
+    // enbPositionAlloc->Add (Vector (592.76, 412.24, 35));
     enbPositionAlloc->Add (Vector (594.90, 190.89, 35));
     enbPositionAlloc->Add (Vector (38.84, 140.63, 35));
-    enbPositionAlloc->Add (Vector (294.41, 55.08, 35));
+    // enbPositionAlloc->Add (Vector (294.41, 55.08, 35));
   }else{
     enbPositionAlloc->Add (Vector (312.75,1356.41, 35));
-    enbPositionAlloc->Add (Vector (10.80,1086.41, 35));
-    enbPositionAlloc->Add (Vector (118.23,810.59, 35));
+    // enbPositionAlloc->Add (Vector (10.80,1086.41, 35));
+    // enbPositionAlloc->Add (Vector (118.23,810.59, 35));
     enbPositionAlloc->Add (Vector (95.00,549.29, 35));
-    enbPositionAlloc->Add (Vector (170.48,314.12, 35));
-    enbPositionAlloc->Add (Vector (132.74,29.60, 35));
+    // enbPositionAlloc->Add (Vector (170.48,314.12, 35));
+    // enbPositionAlloc->Add (Vector (132.74,29.60, 35));
     enbPositionAlloc->Add (Vector (162.36,-312.41, 35));
   }
   
@@ -742,12 +748,8 @@ main (int argc, char *argv[])
   enbmobility.SetPositionAllocator (enbPositionAlloc);
   enbmobility.Install (enbNodes);
 
-
   Ptr<NrSlHelper> nrSlHelper = CreateObject <NrSlHelper> ();
 
-  // NetDeviceContainer enbNetDev = nrHelper->InstallGnbDevice (enbNodes, allBwpsGnb);
-  // use the bwp of sidelink
-  
   nrHelper->SetGnbPhyAttribute ("Numerology", UintegerValue (numerologyBwpSl));
   nrHelper->SetGnbMacAttribute ("ActivePoolId", UintegerValue (0));
   nrSlHelper->SetEnbSlSchedulerAttribute ("ActivePoolId", UintegerValue (0));
@@ -807,10 +809,8 @@ main (int argc, char *argv[])
   
   nrSlHelper->SetUeSlSchedulerAttribute ("FixNrSlMcs", BooleanValue (true));
   nrSlHelper->SetUeSlSchedulerAttribute ("InitialNrSlMcs", UintegerValue (10));
-
   nrSlHelper->SetUeSlSchedulerAttribute ("PlmnId", StringValue(ltePlmnId));
   nrSlHelper->SetUeSlSchedulerAttribute ("REType", StringValue(reType));
-  
 
   nrSlHelper->PrepareUeForSidelink (ueVoiceNetDev, bwpIdContainer);
   nrSlHelper->PrepareGnbForSidelink (enbNetDev, bwpIdContainer);
@@ -1085,6 +1085,7 @@ main (int argc, char *argv[])
   SQLiteOutput db (outputDir + exampleName);
 
   uint32_t writeCacheSize = 2500 * ueNum; 
+  uint32_t writeCacheSizeUlScheduling = 25 * ueNum; 
   // uint32_t writeCacheSize = 10;
 
   // modified
@@ -1143,7 +1144,7 @@ main (int argc, char *argv[])
 	// MAC
 	macSRStats.SetDb (&db, "macSR", writeCacheSize);
 	dlScheduling.SetDb(&db, "dlScheduling", writeCacheSize);
-  ulScheduling.SetDb(&db, "ulScheduling", writeCacheSize);
+  ulScheduling.SetDb(&db, "ulScheduling", writeCacheSizeUlScheduling);
 	macUeBsrStats.SetDb(&db, "macUeBsr", writeCacheSize);
 	ctrlUlDciStats.SetDb(&db, "ctrlUlDciStats", writeCacheSize);
   ctrlMsgsStats.SetDb(&db, "ctrlMsgsStats", writeCacheSize);
@@ -1304,7 +1305,7 @@ main (int argc, char *argv[])
         }
     }
 
-  ns2.Install();
+  
 
   PrintGnuplottableEnbListToFile(outputDir+simTag+"/"+"gnbPos.txt");
   PrintGnuplottableUeListToFile(outputDir+simTag+"/"+"uePos.txt");
