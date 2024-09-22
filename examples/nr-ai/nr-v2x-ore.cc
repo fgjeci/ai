@@ -654,9 +654,9 @@ main (int argc, char *argv[])
   // Put the pointers inside nrHelper
   NS_LOG_DEBUG("ue mac type complete " << nrUeMacTypeNameComplete
               << " nr ue mac " << NrUeMac::GetTypeId().GetName()
-              << nrUeMacTypeNameComplete.compare(NrUeMac::GetTypeId().GetName())); 
+              << " " << nrUeMacTypeNameComplete.compare(NrUeMac::GetTypeId().GetName())); 
   nrHelper->SetEpcHelper (epcHelper);
-  if(nrUeMacTypeNameComplete.compare(NrUeMac::GetTypeId().GetName())){
+  if(nrUeMacTypeNameComplete.compare(NrUeMac::GetTypeId().GetName())==0){
     nrHelper->SetUeMacTypeId (NrUeMac::GetTypeId());
   }else{
     nrHelper->SetUeMacTypeId(AiNrUeMac::GetTypeId());
@@ -801,7 +801,7 @@ main (int argc, char *argv[])
   nrSlHelper->SetSlErrorModel (errorModel);
   nrSlHelper->SetUeSlAmcAttribute ("AmcModel", EnumValue (NrAmc::ErrorModel));
   
-  if(nrUeMacTypeNameComplete.compare(NrUeMac::GetTypeId().GetName())){
+  if(nrUeMacTypeNameComplete.compare(NrUeMac::GetTypeId().GetName())==0){
     nrSlHelper->SetNrSlSchedulerTypeId (NrSlUeMacSchedulerSimple::GetTypeId());
   }else{
     nrSlHelper->SetNrSlSchedulerTypeId(AiNrSlUeMacSchedulerSimple::GetTypeId());
