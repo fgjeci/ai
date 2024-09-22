@@ -470,16 +470,14 @@ main (int argc, char *argv[])
                 "A threshold in dBm used for sensing based UE autonomous resource selection",
                 slThresPsschRsrp);
 
-  std::string nrUeMacTypeNameComplete = "ns3::" +nrUeMacTypeName;
-
-  std::cout << "ue mac type " << nrUeMacTypeNameComplete << std::endl;
-
   // exit(1);
-
-  // end modification
   
   // Parse the command line
   cmd.Parse (argc, argv);
+
+  std::string nrUeMacTypeNameComplete = "ns3::" +nrUeMacTypeName;
+
+  std::cout << "ue mac type " << nrUeMacTypeNameComplete << std::endl;
 
   // ParametersConfig::EnableTraces();
 
