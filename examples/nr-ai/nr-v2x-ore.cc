@@ -807,8 +807,8 @@ main (int argc, char *argv[])
   
   nrSlHelper->SetUeSlSchedulerAttribute ("FixNrSlMcs", BooleanValue (true));
   nrSlHelper->SetUeSlSchedulerAttribute ("InitialNrSlMcs", UintegerValue (10));
-  nrSlHelper->SetUeSlSchedulerAttribute ("PlmnId", StringValue(ltePlmnId));
-  nrSlHelper->SetUeSlSchedulerAttribute ("REType", StringValue(reType));
+  // nrSlHelper->SetUeSlSchedulerAttribute ("PlmnId", StringValue(ltePlmnId));
+  // nrSlHelper->SetUeSlSchedulerAttribute ("REType", StringValue(reType));
 
   nrSlHelper->PrepareUeForSidelink (ueVoiceNetDev, bwpIdContainer);
   nrSlHelper->PrepareGnbForSidelink (enbNetDev, bwpIdContainer);
